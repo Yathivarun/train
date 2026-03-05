@@ -7,8 +7,55 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-LIVE_FILE = "../outputs/live_status.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LIVE_FILE = os.path.join(BASE_DIR, "..", "outputs", "live_trains.json")
+LIVE_BLOCK_FILE = os.path.join(BASE_DIR, "..", "outputs", "live_blocks.json")
+LIVE_EDGE_FILE = os.path.join(BASE_DIR, "..", "outputs", "live_edges.json")
+import pandas as pd
 
+RESULT_FILE = os.path.join(BASE_DIR, "..", "outputs", "simulation_results.csv")
+
+@app.route("/metrics")
+def metrics():
+
+    if not os.path.exists(RESULT_FILE):
+        return jsonify({})
+
+    df = pd.read_csv(RESULT_FILE)
+
+    if df.empty:
+        return jsonify({})
+
+    latest = df.iloc[-1]
+
+    return jsonify({
+        "active_trains": int(latest["active_trains"]),
+        "avg_speed": round(latest["avg_speed"],2),
+        "congestion": round(latest["congestion_index"],2),
+        "conflicts": int(latest["junction_conflicts"])
+    })
+
+@app.route("/edges")
+def edges():
+
+    if not os.path.exists(LIVE_EDGE_FILE):
+        return jsonify([])
+
+    with open(LIVE_EDGE_FILE) as f:
+        data = json.load(f)
+
+    return jsonify(data)
+
+@app.route("/blocks")
+def blocks():
+
+    if not os.path.exists(LIVE_BLOCK_FILE):
+        return jsonify([])
+
+    with open(LIVE_BLOCK_FILE) as f:
+        data = json.load(f)
+
+    return jsonify(data)
 
 @app.route("/trains")
 def trains():
@@ -16,23 +63,10 @@ def trains():
     if not os.path.exists(LIVE_FILE):
         return jsonify([])
 
-    df = pd.read_csv(LIVE_FILE)
+    with open(LIVE_FILE) as f:
+        data = json.load(f)
 
-    trains = []
-
-    for _,row in df.iterrows():
-
-        if pd.isna(row["latitude"]) or pd.isna(row["longitude"]):
-            continue
-
-        trains.append({
-            "id": str(int(row["train_id"])),
-            "lat": float(row["latitude"]),
-            "lon": float(row["longitude"]),
-            "delay": float(row.get("delay_minutes",0))
-        })
-
-    return jsonify(trains)
+    return jsonify(data)
 import json
 
 @app.route("/tracks")
@@ -43,6 +77,7 @@ def tracks():
         data = json.load(f)
 
     return jsonify(data)
+
 
 if __name__ == "__main__":
     app.run(port=5000)
