@@ -16,11 +16,12 @@ SUMO_CONFIG = "sumo.sumocfg"
 LIVE_FILE = "../outputs/live_status.csv"
 LIVE_JSON = "../outputs/live_trains.json"
 RESULT_CSV = "../outputs/simulation_results.csv"
+TRAINING_CSV = "../outputs/ai_training_data.csv"
 
 MAX_SIM_TIME = 3500
-SPAWN_INTERVAL = 5
+SPAWN_INTERVAL = 25
 
-SAFE_HEADWAY = 60
+SAFE_HEADWAY = 10
 OVERTAKE_DISTANCE = 200
 
 # Passing loop / station edges
@@ -460,6 +461,44 @@ while step < MAX_SIM_TIME:
 
     with open(LIVE_JSON,"w") as f:
         json.dump(live_trains,f)
+    # ==================================
+    # AI TRAINING DATA
+    # ==================================
+
+    rows = []
+
+    for v in vehicles:
+
+        try:
+
+            speed = traci.vehicle.getSpeed(v)
+
+            edge = traci.vehicle.getRoadID(v)
+
+            waiting = traci.vehicle.getWaitingTime(v)
+
+            leader = traci.vehicle.getLeader(v,200)
+
+            gap = leader[1] if leader else 999
+
+            rows.append([
+                step,
+                v,
+                classify(v),
+                speed,
+                gap,
+                waiting,
+                edge
+            ])
+
+        except:
+            pass
+
+    with open(TRAINING_CSV,"a",newline="") as f:
+
+        writer = csv.writer(f)
+
+        writer.writerows(rows)
 
 
     # ===============================
