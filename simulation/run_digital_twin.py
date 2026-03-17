@@ -10,7 +10,7 @@ import json
 # CONFIG
 # =====================================================
 
-SUMO_BINARY = "sumo-gui"
+SUMO_BINARY = r"C:\Program Files (x86)\Eclipse\Sumo\bin\sumo-gui.exe"
 SUMO_CONFIG = "sumo.sumocfg"
 
 LIVE_FILE = "../outputs/live_status.csv"

@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# ML models
+models/saved_models/
+*.pth
+*.pkl
+
+# Simulation outputs
+outputs/
+
+# Editor settings
+.vscode/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
