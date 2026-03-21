@@ -5,6 +5,7 @@ import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import AnimatedTrain from "./AnimatedTrain"
 import { CircleMarker } from "react-leaflet"
+import TrainInfoPanel from "./TrainInfoPanel";
 delete L.Icon.Default.prototype._getIconUrl
 
 L.Icon.Default.mergeOptions({
