@@ -13,7 +13,7 @@ node_modules/
 dist/
 build/
 .vite/
-*.lock
+yarn.lock
 
 # VS Code
 .vscode/
@@ -22,16 +22,24 @@ build/
 .DS_Store
 Thumbs.db
 
-# Data files (ignore all BUT keep CSV)
-data/*
-!data/
-!data/csv/
-!data/**/*.csv
+# Trained model binaries (regenerate with train_xgboost_real.py + dqn_env.py)
+models/saved_models/*.pth
+models/saved_models/*.pkl
+models/saved_models/*.json
 
-# Optional: ignore XML/network if large
-*.xml
+# Keep benchmark text results (small, human-readable, useful to version)
+!models/saved_models/xgboost_benchmark.txt
+!models/saved_models/dqn_benchmark.json
 
-# Logs / temp
-*.tmp
-*.bak
-*.swp
+# Simulation runtime outputs (generated when SUMO runs)
+outputs/
+
+# API key file — contains hardcoded credentials
+simulation/live_ir_status.py
+
+# Old deleted component
+frontend/src/components/CustomPredictionPanel.jsx
+
+# Data — keep CSVs, ignore network XML if you want (remove next 2 lines to track XML)
+# data/network/*.xml
+# data/network/*.osm

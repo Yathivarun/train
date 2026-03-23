@@ -1,0 +1,12 @@
+{
+  "eval_scenarios": 1060,
+  "data_source": "real operational CSV data",
+  "dqn_score": 4345,
+  "random_score": -2390,
+  "always_intervene_score": -8590,
+  "never_intervene_score": 4345,
+  "outperformance_pct": 281.8,
+  "dqn_accuracy_pct": 91.42,
+  "random_accuracy_pct": 48.02,
+  "congestion_trigger": 0.3
+}

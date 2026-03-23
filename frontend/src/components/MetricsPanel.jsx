@@ -1,98 +1,86 @@
 import { useEffect, useState } from "react"
 import axios from "axios"
 
-export default function MetricsPanel(){
+const API = "http://127.0.0.1:5000"
 
-    const [metrics, setMetrics] = useState({})
-    const [aiDelay, setAiDelay] = useState(0)
+export default function MetricsPanel() {
+  const [metrics, setMetrics] = useState({})
+  const [aiDelay, setAiDelay] = useState(0)
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // 1. Fetch standard simulation metrics
-                const res = await axios.get("http://127.0.0.1:5000/metrics")
-                setMetrics(res.data)
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const [mRes, dRes] = await Promise.all([
+          axios.get(`${API}/metrics`),
+          axios.get(`${API}/predict_delay`),
+        ])
+        setMetrics(mRes.data)
+        setAiDelay(dRes.data.expected_delay_minutes ?? 0)
+      } catch (_) {}
+    }
+    fetch()
+    const id = setInterval(fetch, 2000)
+    return () => clearInterval(id)
+  }, [])
 
-                // 2. Fetch the new AI XGBoost Prediction
-                const aiRes = await axios.get("http://127.0.0.1:5000/predict_delay")
-                setAiDelay(aiRes.data.expected_delay_minutes)
+  const cards = [
+    { label: "Active Trains",    value: metrics.active_trains ?? 0,           unit: ""     },
+    { label: "Avg Speed",        value: metrics.avg_speed ?? 0,               unit: " m/s" },
+    { label: "Congestion Index", value: metrics.congestion ?? 0,              unit: ""     },
+    { label: "Junction Conflicts",value: metrics.conflicts ?? 0,              unit: ""     },
+  ]
 
-            } catch(err) {
-                console.log(err)
-            }
-        }
+  const delayColor =
+    aiDelay > 15 ? "#ef4444" :
+    aiDelay > 5  ? "#f59e0b" : "#10b981"
 
-        fetchData()
-        const interval = setInterval(fetchData, 2000)
-
-        return () => clearInterval(interval)
-    }, [])
-
-    // Dynamic styling for the AI card
-    const delayColor = aiDelay > 15 ? "#ef4444" : (aiDelay > 5 ? "#f59e0b" : "#10b981")
-
-    return(
-        <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-
-            <div className="metric" style={metricStyle}>
-                <h4 style={headerStyle}>Active Trains</h4>
-                <h2 style={valueStyle}>{metrics.active_trains || 0}</h2>
-            </div>
-
-            <div className="metric" style={metricStyle}>
-                <h4 style={headerStyle}>Average Speed</h4>
-                <h2 style={valueStyle}>{metrics.avg_speed || 0} m/s</h2>
-            </div>
-
-            <div className="metric" style={metricStyle}>
-                <h4 style={headerStyle}>Congestion Index</h4>
-                <h2 style={valueStyle}>{metrics.congestion || 0}</h2>
-            </div>
-
-            <div className="metric" style={metricStyle}>
-                <h4 style={headerStyle}>Junction Conflicts</h4>
-                <h2 style={valueStyle}>{metrics.conflicts || 0}</h2>
-            </div>
-
-            {/* 🤖 NEW AI PREDICTION CARD */}
-            <div className="metric" style={{
-                ...metricStyle, 
-                border: `2px solid ${delayColor}`,
-                background: "rgba(15, 23, 42, 0.8)",
-                boxShadow: `0 0 10px ${delayColor}40`
-            }}>
-                <h4 style={{...headerStyle, color: delayColor}}>🧠 AI Predicted Delay</h4>
-                <h2 style={{...valueStyle, color: delayColor}}>{aiDelay} min</h2>
-            </div>
-
+  return (
+    <div style={strip}>
+      {cards.map(({ label, value, unit }) => (
+        <div key={label} style={card}>
+          <div style={cardLabel}>{label}</div>
+          <div style={cardValue}>{typeof value === "number" ? value.toFixed(value % 1 ? 2 : 0) : value}{unit}</div>
         </div>
-    )
+      ))}
+
+      {/* AI Predicted Delay — color-coded, border glows */}
+      <div style={{ ...card, border: `1px solid ${delayColor}40`, boxShadow: `0 0 12px ${delayColor}20` }}>
+        <div style={{ ...cardLabel, color: delayColor }}>🧠 AI Predicted Delay</div>
+        <div style={{ ...cardValue, color: delayColor }}>{aiDelay} min</div>
+      </div>
+    </div>
+  )
 }
 
-// Basic inline styling for the cards to make them look sharp
-const metricStyle = {
-    flex: 1,
-    minWidth: "150px",
-    background: "#1e293b",
-    padding: "15px",
-    borderRadius: "10px",
-    border: "1px solid #334155",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center"
+const strip = {
+  display:   "flex",
+  gap:       12,
+  flexWrap:  "wrap",
+  flexShrink: 0,
 }
 
-const headerStyle = {
-    margin: 0,
-    fontSize: "0.9rem",
-    color: "#94a3b8",
-    textTransform: "uppercase",
-    letterSpacing: "1px"
+const card = {
+  flex:           "1 1 130px",
+  background:     "#1e293b",
+  border:         "1px solid #334155",
+  borderRadius:   10,
+  padding:        "14px 16px",
+  display:        "flex",
+  flexDirection:  "column",
+  gap:            6,
 }
 
-const valueStyle = {
-    margin: "10px 0 0 0",
-    fontSize: "2rem",
-    fontWeight: "bold"
+const cardLabel = {
+  fontSize:      "0.78rem",
+  color:         "#94a3b8",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  fontWeight:    600,
+}
+
+const cardValue = {
+  fontSize:   "1.75rem",
+  fontWeight: 700,
+  color:      "#e2e8f0",
+  lineHeight: 1,
 }

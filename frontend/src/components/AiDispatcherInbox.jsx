@@ -1,139 +1,193 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import axios from "axios"
 
+const API = "http://127.0.0.1:5000"
+
+const SEVERITY_COLORS = {
+  CRITICAL: { bg: "#7f1d1d", border: "#ef4444", text: "#fca5a5" },
+  HIGH:     { bg: "#78350f", border: "#f59e0b", text: "#fcd34d" },
+  MODERATE: { bg: "#1e3a5f", border: "#3b82f6", text: "#93c5fd" },
+}
+
 export default function AiDispatcherInbox() {
-    const [alerts, setAlerts] = useState([])
+  const [alerts, setAlerts]     = useState([])
+  const [resolved, setResolved] = useState([]) // keep dismissed in view briefly
+  const pollRef = useRef(null)
 
-    // Poll the backend for new AI recommendations every 2 seconds
-    useEffect(() => {
-        const fetchAlerts = async () => {
-            try {
-                const res = await axios.get("http://127.0.0.1:5000/alerts")
-                setAlerts(res.data)
-            } catch (err) {
-                console.error("Failed to fetch alerts:", err)
-            }
-        }
-        fetchAlerts()
-        const interval = setInterval(fetchAlerts, 2000)
-        return () => clearInterval(interval)
-    }, [])
-
-    // Handle the user clicking Approve or Dismiss
-    const handleResolve = async (alertId, action) => {
-        try {
-            await axios.post("http://127.0.0.1:5000/resolve_alert", {
-                alert_id: alertId,
-                action: action
-            })
-            // Instantly remove it from the UI for a snappy feel
-            setAlerts(alerts.filter(a => a.id !== alertId))
-        } catch (err) {
-            console.error("Failed to resolve alert:", err)
-        }
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const r = await axios.get(`${API}/alerts`)
+        setAlerts(r.data)
+      } catch (_) {}
     }
+    fetch()
+    pollRef.current = setInterval(fetch, 2000)
+    return () => clearInterval(pollRef.current)
+  }, [])
 
-    return (
-        <div style={panelStyle}>
-            <h3 style={{ margin: "0 0 15px 0", color: "#e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>📥 AI Dispatcher Inbox</span>
-                {alerts.length > 0 && (
-                    <span style={badgeStyle}>{alerts.length}</span>
-                )}
-            </h3>
+  const handleResolve = async (alertId, action) => {
+    try {
+      await axios.post(`${API}/resolve_alert`, { alert_id: alertId, action })
+      setAlerts(prev => prev.filter(a => a.id !== alertId))
+      if (action === "approve") {
+        setResolved(prev => [...prev.slice(-2), alertId]) // show last 2 approvals
+        setTimeout(() => setResolved(prev => prev.filter(id => id !== alertId)), 3000)
+      }
+    } catch (_) {}
+  }
 
-            <div style={listContainerStyle}>
-                {alerts.length === 0 ? (
-                    <div style={emptyStyle}>
-                        ✅ Network operating nominally.<br/>No pending AI actions.
+  const severity = (alert) => alert.severity || (
+    alert.congestion > 0.7 ? "CRITICAL" :
+    alert.congestion > 0.5 ? "HIGH" : "MODERATE"
+  )
+
+  return (
+    /* FIX: panel uses flex column with overflow:hidden on outer, overflow:auto on list */
+    <div style={panel}>
+      <div style={header}>
+        <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 14 }}>
+          📥 AI Dispatcher Inbox
+        </span>
+        {alerts.length > 0 && (
+          <span style={badge}>{alerts.length}</span>
+        )}
+      </div>
+
+      {/* Independent scroll list — never pushes sibling components */}
+      <div style={list}>
+        {alerts.length === 0 ? (
+          <div style={empty}>
+            ✅ Network nominal<br />
+            <span style={{ fontSize: 12, opacity: 0.6 }}>No pending AI actions</span>
+          </div>
+        ) : (
+          alerts.map(alert => {
+            const sev    = severity(alert)
+            const colors = SEVERITY_COLORS[sev] || SEVERITY_COLORS.MODERATE
+            return (
+              <div key={alert.id} style={{ ...alertCard, background: `${colors.bg}44`, borderLeft: `3px solid ${colors.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: colors.text, letterSpacing: "0.05em" }}>
+                    ⚠️ {sev} — ROUTING ADVISORY
+                  </span>
+                  <span style={{ fontSize: 11, color: "#64748b" }}>
+                    {alert.train_type || "TRAIN"} #{alert.train_id?.split("_")[0]}
+                  </span>
+                </div>
+
+                <p style={{ fontSize: 13, color: "#cbd5e1", margin: "0 0 10px", lineHeight: 1.4 }}>
+                  {alert.message}
+                </p>
+
+                {alert.congestion != null && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={congBar}>
+                      <span style={{ fontSize: 11, color: "#94a3b8" }}>Congestion</span>
+                      <span style={{ fontSize: 11, color: colors.text, fontWeight: 600 }}>
+                        {Math.round(alert.congestion * 100)}%
+                      </span>
                     </div>
-                ) : (
-                    alerts.map(alert => (
-                        <div key={alert.id} style={alertCardStyle}>
-                            <div style={warningHeaderStyle}>
-                                ⚠️ ROUTING ADVISORY
-                            </div>
-                            <div style={{ fontSize: "0.95rem", marginBottom: "15px", lineHeight: "1.4", color: "#cbd5e1" }}>
-                                {alert.message}
-                            </div>
-                            <div style={{ display: "flex", gap: "10px" }}>
-                                <button onClick={() => handleResolve(alert.id, "approve")} style={approveBtnStyle}>
-                                    ✓ Approve
-                                </button>
-                                <button onClick={() => handleResolve(alert.id, "dismiss")} style={dismissBtnStyle}>
-                                    ✕ Dismiss
-                                </button>
-                            </div>
-                        </div>
-                    ))
+                    <div style={{ height: 4, background: "#1e293b", borderRadius: 2 }}>
+                      <div style={{
+                        height: "100%", borderRadius: 2,
+                        width:  `${Math.min(alert.congestion * 100, 100)}%`,
+                        background: colors.border,
+                        transition: "width 0.4s",
+                      }} />
+                    </div>
+                  </div>
                 )}
-            </div>
-        </div>
-    )
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => handleResolve(alert.id, "approve")} style={approveBtn}>
+                    ✓ Approve
+                  </button>
+                  <button onClick={() => handleResolve(alert.id, "dismiss")} style={dismissBtn}>
+                    ✕ Dismiss
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
 }
 
-// --- STYLING ---
-const panelStyle = {
-    flex: 1,
-    background: "#1e293b",
-    padding: "20px",
-    borderRadius: "10px",
-    border: "1px solid #334155",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden" // Prevent the whole panel from growing too large
+/* ── Styles ─────────────────────────────────────────────────────────────── */
+const panel = {
+  display:        "flex",
+  flexDirection:  "column",
+  height:         "100%",         // fills parent flex cell
+  overflow:       "hidden",       // no outer scroll
+  padding:        "14px",
 }
 
-const listContainerStyle = {
-    flex: 1,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    paddingRight: "5px"
+const header = {
+  display:        "flex",
+  justifyContent: "space-between",
+  alignItems:     "center",
+  marginBottom:   12,
+  flexShrink:     0,              // header never shrinks
 }
 
-const badgeStyle = {
-    background: "#ef4444",
-    color: "white",
-    fontSize: "0.8rem",
-    padding: "3px 8px",
-    borderRadius: "12px",
-    fontWeight: "bold"
+const badge = {
+  background: "#ef4444",
+  color:       "white",
+  fontSize:    11,
+  fontWeight:  700,
+  padding:     "2px 7px",
+  borderRadius: 10,
 }
 
-const emptyStyle = {
-    flex: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-    color: "#10b981",
-    fontStyle: "italic",
-    background: "rgba(16, 185, 129, 0.1)",
-    borderRadius: "8px",
-    padding: "20px"
+const list = {
+  flex:       1,
+  overflowY:  "auto",             // ← independent scroll
+  display:    "flex",
+  flexDirection: "column",
+  gap:        10,
+  paddingRight: 4,
 }
 
-const alertCardStyle = {
-    background: "rgba(15, 23, 42, 0.7)",
-    borderLeft: "4px solid #f59e0b",
-    padding: "15px",
-    borderRadius: "6px"
+const empty = {
+  flex:       1,
+  display:    "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign:  "center",
+  color:      "#10b981",
+  background: "rgba(16,185,129,0.05)",
+  borderRadius: 8,
+  padding:    20,
+  fontSize:   14,
+  lineHeight: 1.6,
 }
 
-const warningHeaderStyle = {
-    fontSize: "0.80rem",
-    color: "#f59e0b",
-    fontWeight: "bold",
-    letterSpacing: "1px",
-    marginBottom: "8px"
+const alertCard = {
+  borderRadius: 6,
+  padding:      "12px",
+  flexShrink:   0,
 }
 
-const approveBtnStyle = {
-    flex: 1, padding: "8px", background: "#10b981", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", transition: "0.2s"
+const congBar = {
+  display:        "flex",
+  justifyContent: "space-between",
+  marginBottom:   4,
 }
 
-const dismissBtnStyle = {
-    flex: 1, padding: "8px", background: "#475569", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", transition: "0.2s"
+const approveBtn = {
+  flex: 1, padding: "7px 0",
+  background: "#10b981", color: "white",
+  border: "none", borderRadius: 5,
+  cursor: "pointer", fontWeight: 700, fontSize: 13,
+}
+
+const dismissBtn = {
+  flex: 1, padding: "7px 0",
+  background: "#334155", color: "#94a3b8",
+  border: "none", borderRadius: 5,
+  cursor: "pointer", fontWeight: 600, fontSize: 13,
 }

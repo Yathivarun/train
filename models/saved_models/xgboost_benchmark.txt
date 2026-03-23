@@ -1,0 +1,6 @@
+MSE=0.1932
+RMSE=0.4396
+MAE=0.3322
+R2=0.6054
+Samples=1060
+Features=['excess_travel_time', 'hour_of_day', 'train_type_enc', 'from_station_enc', 'to_station_enc', 'dispatch_priority', 'station_avg_delay', 'num_tracks', 'distance_km', 'block_count']
