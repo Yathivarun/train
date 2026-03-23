@@ -269,7 +269,7 @@ while step < MAX_SIM_TIME:
                 writer = csv.writer(f)
                 writer.writerow(["step", "active_trains", "avg_speed", "congestion_index", "overtake_events", "junction_conflicts", "dynamic_switches"])
                 # Write the last 20 rows to keep file operations lightning fast
-                writer.writerows(metrics_log[-20:]) 
+                writer.writerows(metrics_log) 
         except: pass
 
     step += 1

@@ -1,319 +1,117 @@
-🚆 Railway Digital Twin using SUMO
-Howrah – Bally – Serampore – Chandannagar – Chuchura – Bandel Corridor
-📌 Project Overview
+# AI-Driven Railway Digital Twin
 
-This project implements a real-time railway digital twin of the Howrah–Bandel suburban corridor using:
+A real-time, Human-in-the-Loop (HITL) Digital Twin for railway network management. This project integrates a live microscopic traffic simulation (SUMO) with advanced Machine Learning (XGBoost) and Deep Reinforcement Learning (DQN) to predict network delays and autonomously optimize train routing.
 
-SUMO (Simulation of Urban Mobility)
+## System Architecture & Pipeline
 
-TraCI (Python control interface)
+The system operates on a highly decoupled, four-tier pipeline:
 
-Live railway API integration
+1. **Physical Simulation Layer (SUMO):** Acts as the digital twin, modeling train physics, critical junctions, block lengths, and priority hierarchies (e.g., Superfast vs. Freight) on the Howrah-Bandel railway network.
+2. **AI Decision Engine:**
+   - **Predictive Analytics:** An XGBoost regressor actively monitors the network state to predict cumulative delay minutes.
+   - **Autonomous Routing:** A fully trained Deep Q-Network (DQN) evaluates network congestion and proposes dynamic track-switching (Fast to Slow tracks) to clear bottlenecks.
+3. **Backend API (Flask):** Serves as the communication bridge, parsing simulation data (CSV/JSON) and serving it to the frontend while managing the 2-way communication for HITL dispatcher approvals.
+4. **Frontend Dashboard (React/Vite):** A real-time command center displaying active metrics, live maps, specific train data, and an interactive "AI Dispatcher Inbox" for human controllers to approve or dismiss AI actions.
 
-Custom railway control logic
+## Key Features
 
-The system models:
+- **Real-Time Telemetry:** Live monitoring of active trains, network-wide average speeds, and congestion indices.
+- **XGBoost Delay Prediction:** Highly accurate ($R^2$ = 0.99) forecasting of expected network delays based on current traffic density.
+- **Interactive "What-If" Scenario Engine:** Allows controllers to manually input hypothetical congestion variables to see AI-predicted outcomes independent of the live simulation.
+- **DQN Routing Advisor:** Reinforcement learning agent that intelligently schedules and reroutes trains to prevent deadlocks and minimize delays (+437% outperformance over baseline routing).
+- **Human-in-the-Loop (HITL) Inbox:** AI routing decisions are sent to the React dashboard as advisories. The system only executes track switches in SUMO upon human approval.
 
-✔ Separate UP/DOWN infrastructure
-✔ Separate FAST/SLOW lines
-✔ Platform capacity constraints
-✔ Absolute block signaling
-✔ Junction interlocking
-✔ Train priority hierarchy
-✔ Overtake detection
-✔ Dynamic line switching
-✔ Delay-aware operations
-✔ Live bi-directional train injection
-✔ Corridor congestion analytics
-✔ CSV-based performance logging
+---
 
-This is a railway-grade operational simulator, not just a traffic animation.
+## Prerequisites & Installation
 
-🏗️ 1️⃣ Building the Railway Network
-Step 1: Extract Railway Network from OpenStreetMap
+Ensure you have the following installed on your system:
 
-Export OSM file covering:
+- **Python 3.8+**
+- **Node.js & npm**
+- **Eclipse SUMO (Simulation of Urban MObility)**
 
-Howrah (HWH)
+**Install Python Dependencies:**
 
-Bally
+```bash
+pip install flask flask-cors pandas numpy xgboost scikit-learn torch traci
+```
 
-Serampore
+**Install Frontend Dependencies:**
 
-Chandannagar
+```bash
+cd frontend
+npm install
+```
 
-Chuchura
+---
 
-Bandel (BDC)
+## How to Run the Project
 
-Save as:
+To experience the full pipeline with the live dashboard and AI dispatcher, you need to run four separate processes. Open four terminal windows and execute the following:
 
-data/howrah_bandel.osm
-Step 2: Convert OSM → SUMO Network
+**Terminal 1: Start the Backend API**
 
-Use netconvert:
+This serves the AI predictions and handles communication between SUMO and React.
 
-netconvert \
-  --osm-files data/howrah_bandel.osm \
-  --output-file data/network.net.xml \
-  --proj.utm true \
-  --railway.topology.repair true \
-  --osm.railway.oneway false \
-  --osm.railway.guess-signals true \
-  --junctions.join true \
-  --geometry.remove false
+```bash
+cd backend
+python app.py
+```
 
-This generates:
+**Terminal 2: Start the React Dashboard**
 
-network.net.xml
-🚄 2️⃣ Route Architecture (FAST / SLOW Segregation)
+This launches the live UI command center.
 
-Routes defined in:
+```bash
+cd frontend
+npm run dev
+```
 
-routes.rou.xml
+Open your browser to `http://localhost:5173`
 
-We define:
+**Terminal 3: Flood the Network with Traffic**
 
-Direction	Fast Line	Slow Line
-UP	UP_FAST	UP_SLOW
-DOWN	DOWN_FAST	DOWN_SLOW
+This script dynamically injects trains into the simulation. You can control the stress level of the network using the `--traffic` flag.
 
-Example:
+```bash
+cd simulation
+python generate_dummy_traffic.py --traffic high
+```
 
-<route id="UP_FAST" edges="1311347647#0 ... 367611317#1"/>
-<route id="UP_SLOW" edges="372219772#0 ... 367611317#1"/>
-<route id="DOWN_FAST" edges="810347763#1 ... 521495092#13"/>
-<route id="DOWN_SLOW" edges="810347762#0 ... 380964042#8"/>
+Available modes: `low`, `medium`, `high`, `very-high`
 
-FAST and SLOW diverge at junctions.
+**Terminal 4: Launch the Digital Twin Engine**
 
-🚉 3️⃣ Platform Modeling
+This starts the SUMO simulation and the AI routing logic. Use the `--routing dqn_hitl` flag to ensure the AI requests permission on the dashboard before switching tracks.
 
-Platforms defined as busStops:
+```bash
+cd simulation
+python run_digital_twin.py --routing dqn_hitl
+```
 
-<busStop id="HOWRAH_UP_SLOW"
-         lane="372172712_0"
-         startPos="100"
-         endPos="400"/>
+Available modes: `hardcoded`, `dqn_simple`, `dqn_full`, `dqn_hitl`
 
-<busStop id="BANDEL_UP_SLOW"
-         lane="521495092#7_0"
-         startPos="200"
-         endPos="500"/>
+**Testing the System:** Once the simulation is running, watch the dashboard. As the Congestion Index crosses 0.50, the AI Dispatcher Inbox will populate with routing advisories. Click Approve and watch the AI seamlessly reroute the train in the SUMO simulation.
 
-Features:
+---
 
-✔ Separate UP/DOWN platforms
-✔ Separate FAST/SLOW platforms
-✔ Platform capacity = 1
-✔ Headway departure control
+## Generating Academic Benchmarks
 
-🌐 4️⃣ Live Data Integration
+This project includes standalone benchmarking scripts that evaluate the AI models independent of the UI or SUMO GUI. These are used to generate hard metrics (MSE, MAE, $R^2$, and Reward Outperformance) for research papers.
 
-live_ir_status.py
+**Benchmark the XGBoost Predictor:**
 
-Uses Railway API:
+Note: Ensure you have run the simulation for a few minutes first to generate the `simulation_results.csv` test data.
 
-BASE_URL = "https://api.railradar.org/api/v1"
+```bash
+cd backend
+python benchmark_xgboost.py
+```
 
-Steps:
+**Benchmark the DQN Routing Agent:**
 
-Fetch trains between HWH ↔ BDC
-
-Fetch live GPS for each train
-
-Extract:
-
-train_id
-
-latitude
-
-longitude
-
-delay_minutes
-
-Save to:
-
-live_status.csv
-
-Example output:
-
-train_id,latitude,longitude,delay_minutes,timestamp
-37215,22.8632,88.3421,3,1700000000
-
-Live refresh interval: 90 seconds.
-
-🧠 5️⃣ Digital Twin Engine
-
-Main control file:
-
-run_digital_twin.py
-🚦 Core Layers
-1️⃣ Live Train Injection
-
-Reads live_status.csv
-
-Classifies train type
-
-Assigns route (FAST/SLOW + UP/DOWN)
-
-Sets max speed based on type
-
-2️⃣ Train Type Classification
-Type	Priority	Speed (m/s)
-SUPERFAST	5	44
-EXPRESS	4	36
-PASSENGER	3	30
-EMU	2	28
-FREIGHT	1	22
-3️⃣ Absolute Block Signaling
-
-Block length: 1200m
-
-block_id = f"{edge}_{int(position//BLOCK_LENGTH)}"
-
-Only one train per block.
-
-Prevents rear-end collisions.
-
-4️⃣ Junction Interlocking
-
-Critical junction edges:
-
-CRITICAL_JUNCTION_EDGES = [
-    "44629483",
-    "44629484",
-    "44629491"
-]
-
-Logic:
-
-✔ First train locks junction
-✔ Higher priority can override
-✔ Lower priority halted
-
-This simulates movement authority.
-
-5️⃣ Overtake Detection Engine
-
-At overtaking zones:
-
-OVERTAKE_EDGES = [
-    "521712768",
-    "385081047"
-]
-
-If:
-
-Faster train behind slower train
-
-Gap < 80m
-
-Higher priority
-
-Then:
-
-Slow train forced to reduce speed
-
-6️⃣ Dynamic Line Switching
-
-If congestion > threshold:
-
-✔ EXPRESS may shift FAST → SLOW
-✔ Only if current edge exists in new route
-✔ Safe route replacement logic
-
-Prevents illegal route changes.
-
-7️⃣ Congestion Index
-congestion = 1 - (avg_speed / 44)
-
-Values:
-
-0.0 → Free flow
-
-0.3 → Moderate
-
-0.6 → Heavy
-
-0.8+ → Severe congestion
-
-📊 6️⃣ Output & Analytics
-
-Simulation logs saved to:
-
-simulation_results.csv
-
-Columns:
-
-step,
-active_trains,
-avg_speed,
-congestion_index,
-overtake_events,
-junction_conflicts,
-dynamic_switches
-
-Used for:
-
-✔ Delay propagation analysis
-✔ Capacity study
-✔ Bottleneck detection
-✔ Overtake frequency analysis
-✔ Signal performance evaluation
-
-🚀 7️⃣ Running the System
-Step 1 — Start Live Poller
-python live_ir_status.py
-Step 2 — Start Digital Twin
-python run_digital_twin.py
-
-SUMO GUI launches automatically.
-
-
-🧪 Research Capabilities
-
-This system enables:
-
-Railway capacity modeling
-
-Delay amplification studies
-
-Block occupancy analysis
-
-Signal conflict simulation
-
-Junction conflict evaluation
-
-Priority-based dispatch research
-
-Real-time corridor digital twin modeling
-
-🔮 Future Enhancements
-
-Predictive congestion forecasting
-
-AI-based dispatcher
-
-Timetable adherence scoring
-
-Crossover switch modeling
-
-Platform allocation optimizer
-
-Delay ripple propagation matrix
-
-🎯 System Summary
-
-This project evolves from:
-
-OSM railway extraction
-→ SUMO network generation
-→ FAST/SLOW infrastructure modeling
-→ Platform & block logic
-→ Live API ingestion
-→ Signal + interlocking system
-→ Priority-aware dispatch
-→ Advanced analytics logging
-
-It is now a multi-layer railway operational digital twin.
+```bash
+cd simulation
+python benchmark_dqn.py
+```
