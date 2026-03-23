@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.env
+venv/
+.env/
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.vite/
+*.lock
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data files (ignore all BUT keep CSV)
+data/*
+!data/
+!data/csv/
+!data/**/*.csv
+
+# Optional: ignore XML/network if large
+*.xml
+
+# Logs / temp
+*.tmp
+*.bak
+*.swp
